@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pipeline Results</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#080e1a;--surface:#0d1526;--card:#101d30;--border:#1a2d4a;
+      --border-hi:#2a4a72;--cyan:#00d4ff;--cyan-lt:#80eaff;
+      --coral:#ff5f6d;--sage:#00e5a0;--sky:#4da8ff;--gold:#ffd166;
+      --rose:#ff4d6d;--lavender:#b48aff;--text:#e2eeff;--muted:#5a7a9a;--muted2:#2e4a6a;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+    body::before{content:'';position:fixed;inset:0;z-index:0;
+      background:
+        radial-gradient(ellipse 60% 50% at 10% 0%,rgba(0,212,255,.07) 0%,transparent 60%),
+        radial-gradient(ellipse 40% 40% at 90% 100%,rgba(0,229,160,.05) 0%,transparent 60%),
+        radial-gradient(ellipse 30% 30% at 50% 50%,rgba(77,168,255,.03) 0%,transparent 70%);
+      pointer-events:none;}
+
+    /* TOPBAR */
+    .topbar{background:rgba(8,14,26,.97);border-bottom:1px solid var(--border);padding:0 2rem;height:58px;
+      display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);}
+    .logo-wrap{display:flex;align-items:center;gap:.75rem;}
+    .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--cyan),var(--sky));border-radius:8px;
+      display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;
+      box-shadow:0 0 12px rgba(0,212,255,.3);}
+    .logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;letter-spacing:.02em;text-transform:uppercase;}
+    .logo-text span{color:var(--cyan);}
+    .back-btn{display:flex;align-items:center;gap:.4rem;padding:.4rem 1rem;
+      background:rgba(0,212,255,.07);border:1px solid rgba(0,212,255,.2);border-radius:6px;
+      font-size:.8rem;font-weight:600;color:var(--cyan);text-decoration:none;letter-spacing:.04em;transition:all .18s;}
+    .back-btn:hover{background:rgba(0,212,255,.14);box-shadow:0 0 10px rgba(0,212,255,.15);}
+
+    /* CONTAINER */
+    .container{max-width:1200px;margin:0 auto;padding:2rem 2rem 4rem;position:relative;z-index:1;}
+
+    /* ERROR */
+    .error-box{background:rgba(255,77,109,.07);border:1px solid rgba(255,77,109,.3);
+      border-left:4px solid var(--rose);border-radius:8px;padding:1.2rem 1.5rem;margin-bottom:2rem;}
+    .error-box h2{font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;letter-spacing:.08em;
+      text-transform:uppercase;color:var(--rose);margin-bottom:.5rem;}
+    .error-box pre{font-size:.8rem;color:#ff8fa3;white-space:pre-wrap;}
+
+    /* HEADER */
+    .results-header{margin-bottom:2rem;}
+    .results-eyebrow{font-size:.72rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
+      color:var(--sage);margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;}
+    .results-title{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(1.7rem,3.5vw,2.6rem);
+      line-height:1.1;margin-bottom:.55rem;}
+    .results-title em{font-style:normal;color:var(--cyan);}
+    .check-label{font-size:.85rem;color:var(--muted);}
+    .check-label strong{color:var(--cyan-lt);font-weight:600;}
+
+    /* SUMMARY CARDS */
+    .summary-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:.7rem;margin-bottom:2rem;}
+    .summary-card{background:var(--card);border:1px solid var(--border);border-radius:10px;
+      padding:1rem .75rem;text-align:center;position:relative;overflow:hidden;
+      transition:border-color .2s,transform .2s,box-shadow .2s;cursor:default;}
+    .summary-card:hover{transform:translateY(-3px);}
+    .summary-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+    .sc-dup::before{background:var(--muted);}
+    .sc-dup:hover{border-color:var(--muted);box-shadow:0 4px 20px rgba(90,122,154,.2);}
+    .sc-bl::before{background:var(--rose);}
+    .sc-bl:hover{border-color:var(--rose);box-shadow:0 4px 20px rgba(255,77,109,.2);}
+    .sc-time::before{background:var(--gold);}
+    .sc-time:hover{border-color:var(--gold);box-shadow:0 4px 20px rgba(255,209,102,.2);}
+    .sc-ch::before{background:var(--lavender);}
+    .sc-ch:hover{border-color:var(--lavender);box-shadow:0 4px 20px rgba(180,138,255,.2);}
+    .sc-add::before{background:var(--sage);}
+    .sc-add:hover{border-color:var(--sage);box-shadow:0 4px 20px rgba(0,229,160,.2);}
+    .sc-nosrc::before{background:var(--coral);}
+    .sc-nosrc:hover{border-color:var(--coral);box-shadow:0 4px 20px rgba(255,95,109,.2);}
+    .sc-count{font-family:'Syne',sans-serif;font-weight:800;font-size:2.1rem;
+      line-height:1;display:block;margin-bottom:.3rem;}
+    .sc-dup .sc-count{color:var(--muted);}
+    .sc-bl .sc-count{color:var(--rose);}
+    .sc-time .sc-count{color:var(--gold);}
+    .sc-ch .sc-count{color:var(--lavender);}
+    .sc-add .sc-count{color:var(--sage);}
+    .sc-nosrc .sc-count{color:var(--coral);}
+    .sc-label{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+
+    /* DOWNLOAD BAR */
+    .download-bar{display:flex;align-items:center;justify-content:space-between;
+      background:rgba(0,229,160,.05);border:1px solid rgba(0,229,160,.18);
+      border-radius:10px;padding:1rem 1.5rem;margin-bottom:2rem;gap:1rem;}
+    .download-bar-left{display:flex;align-items:center;gap:.75rem;}
+    .download-icon{font-size:1.4rem;}
+    .download-title{font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;
+      text-transform:uppercase;letter-spacing:.04em;color:var(--sage);}
+    .download-sub{font-size:.78rem;color:var(--muted);margin-top:.15rem;}
+    .btn-download{display:inline-flex;align-items:center;gap:.45rem;padding:.58rem 1.4rem;
+      background:linear-gradient(135deg,#00b882,var(--sage));color:#060f1a;border-radius:7px;
+      text-decoration:none;font-family:'Syne',sans-serif;font-weight:800;font-size:.88rem;
+      letter-spacing:.06em;text-transform:uppercase;transition:all .18s;white-space:nowrap;}
+    .btn-download:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,229,160,.3);}
+
+    /* FILTER + SEARCH */
+    .toolbar{display:flex;align-items:center;gap:.75rem;margin-bottom:1.5rem;flex-wrap:wrap;}
+    .filter-input{flex:1;max-width:340px;padding:.5rem .95rem;background:var(--surface);
+      border:1px solid var(--border);border-radius:7px;color:var(--text);
+      font-family:'Inter',sans-serif;font-size:.85rem;outline:none;transition:all .2s;}
+    .filter-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,212,255,.1);}
+    .filter-input::placeholder{color:var(--muted2);}
+    .filter-label{font-size:.75rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+
+    /* SECTIONS */
+    .detail-section{margin-bottom:2.25rem;}
+    .section-head{display:flex;align-items:center;gap:.7rem;margin-bottom:.85rem;}
+    .section-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+    .dot-dup{background:var(--muted);}
+    .dot-bl{background:var(--rose);}
+    .dot-time{background:var(--gold);}
+    .dot-ch{background:var(--lavender);}
+    .dot-add{background:var(--sage);}
+    .dot-nosrc{background:var(--coral);}
+    .section-title{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;
+      text-transform:uppercase;letter-spacing:.05em;}
+    .section-count{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+      padding:.18rem .6rem;border-radius:4px;margin-left:auto;}
+    .count-dup{background:rgba(90,122,154,.15);color:var(--muted);border:1px solid rgba(90,122,154,.3);}
+    .count-bl{background:rgba(255,77,109,.12);color:var(--rose);border:1px solid rgba(255,77,109,.28);}
+    .count-time{background:rgba(255,209,102,.12);color:var(--gold);border:1px solid rgba(255,209,102,.28);}
+    .count-ch{background:rgba(180,138,255,.12);color:var(--lavender);border:1px solid rgba(180,138,255,.28);}
+    .count-add{background:rgba(0,229,160,.1);color:var(--sage);border:1px solid rgba(0,229,160,.25);}
+    .count-nosrc{background:rgba(255,95,109,.12);color:var(--coral);border:1px solid rgba(255,95,109,.28);}
+
+    .empty-state{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+      padding:1.25rem;text-align:center;font-size:.82rem;font-weight:500;letter-spacing:.06em;
+      text-transform:uppercase;color:var(--muted2);}
+
+    /* TABLE — fixed header alignment: no overflow on wrapper, scroll on a fixed-height container */
+    .table-scroll{max-height:420px;overflow-y:auto;overflow-x:auto;border-radius:10px;border:1px solid var(--border);}
+    .table-scroll::-webkit-scrollbar{width:6px;height:6px;}
+    .table-scroll::-webkit-scrollbar-track{background:var(--surface);}
+    .table-scroll::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:3px;}
+    .table-scroll::-webkit-scrollbar-thumb:hover{background:var(--cyan);}
+    .detail-table{width:100%;border-collapse:collapse;font-size:.82rem;background:var(--card);}
+    .detail-table thead tr{position:sticky;top:0;z-index:10;}
+    .detail-table th{padding:.62rem .9rem;background:var(--surface);
+      border-bottom:2px solid var(--border-hi);border-right:1px solid var(--border);
+      font-family:'Syne',sans-serif;font-weight:700;font-size:.68rem;
+      letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+      white-space:nowrap;text-align:left;cursor:pointer;transition:color .15s,background .15s;user-select:none;}
+    .detail-table th:hover{color:var(--cyan);background:rgba(0,212,255,.05);}
+    .detail-table th.sorted-asc,
+    .detail-table th.sorted-desc{color:var(--cyan);}
+    .detail-table th:last-child{border-right:none;}
+    .detail-table td{padding:.55rem .9rem;border-bottom:1px solid rgba(26,45,74,.6);
+      border-right:1px solid rgba(26,45,74,.4);vertical-align:middle;color:var(--text);}
+    .detail-table td:last-child{border-right:none;}
+    .detail-table tbody tr{transition:background .12s;}
+    .detail-table tbody tr:hover{background:rgba(0,212,255,.04);}
+    .detail-table tbody tr:last-child td{border-bottom:none;}
+
+    /* SOURCE BADGES */
+    .src-badge{display:inline-block;padding:.15rem .5rem;border-radius:4px;
+      font-family:'Syne',sans-serif;font-weight:700;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;}
+    .src-br{background:rgba(77,168,255,.14);color:var(--sky);border:1px solid rgba(77,168,255,.3);}
+    .src-bg{background:rgba(0,212,255,.12);color:var(--cyan);border:1px solid rgba(0,212,255,.28);}
+    .src-rb{background:rgba(180,138,255,.14);color:var(--lavender);border:1px solid rgba(180,138,255,.28);}
+    .src-lbc{background:rgba(0,229,160,.12);color:var(--sage);border:1px solid rgba(0,229,160,.25);}
+    .src-unk{background:rgba(90,122,154,.14);color:var(--muted);border:1px solid rgba(90,122,154,.28);}
+
+    /* TIME CELLS */
+    .time-old{color:var(--rose);font-weight:600;}
+    .time-new{color:var(--sage);font-weight:600;}
+
+    /* CHANNEL CHANGE CELL */
+    .ch-from{color:var(--rose);font-weight:600;}
+    .ch-to{color:var(--sage);font-weight:600;}
+
+    /* EVENT NAME */
+    .event-cell{max-width:280px;white-space:normal;word-break:break-word;line-height:1.35;}
+
+    @media(max-width:960px){.summary-grid{grid-template-columns:repeat(3,1fr);}}
+    @media(max-width:600px){
+      .container{padding:1rem 1rem 3rem;}
+      .topbar{padding:0 1rem;}
+      .summary-grid{grid-template-columns:repeat(2,1fr);}
+      .download-bar{flex-direction:column;align-items:flex-start;}
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<nav class="topbar">
+  <div class="logo-wrap">
+    <div class="logo-icon">📡</div>
+    <div class="logo-text">Live <span>Scheduling</span> Pipeline</div>
+  </div>
+  <a href="{{ url_for('index') }}" class="back-btn">← New Check</a>
+</nav>
+
+<div class="container">
+
+  {% if error %}
+  <div class="error-box">
+    <h2>⚠ Pipeline Error</h2>
+    <pre>{{ error }}</pre>
+  </div>
+  {% endif %}
+
+  {% if summary %}
+
+  <!-- HEADER -->
+  <div class="results-header">
+    <div class="results-eyebrow">✅ Pipeline Complete</div>
+    <h1 class="results-title">Check <em>Results</em></h1>
+    {% if check_type_label %}
+    <p class="check-label">Check: <strong>{{ check_type_label }}</strong></p>
+    {% endif %}
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div class="summary-grid">
+    <div class="summary-card sc-dup">
+      <span class="sc-count">{{ summary.duplicates_removed }}</span>
+      <div class="sc-label">Duplicates<br>Removed</div>
+    </div>
+    <div class="summary-card sc-bl">
+      <span class="sc-count">{{ summary.blacklisted_removed }}</span>
+      <div class="sc-label">Blacklisted<br>Removed</div>
+    </div>
+    <div class="summary-card sc-time">
+      <span class="sc-count">{{ summary.time_changes }}</span>
+      <div class="sc-label">Time<br>Changes</div>
+    </div>
+    <div class="summary-card sc-ch">
+      <span class="sc-count">{{ summary.channel_changes }}</span>
+      <div class="sc-label">Channel<br>Changes</div>
+    </div>
+    <div class="summary-card sc-add">
+      <span class="sc-count">{{ summary.additions }}</span>
+      <div class="sc-label">Fresh<br>Additions</div>
+    </div>
+    <div class="summary-card sc-nosrc">
+      <span class="sc-count">{{ summary.no_source | default(0) }}</span>
+      <div class="sc-label">No<br>Source</div>
+    </div>
+  </div>
+
+  <!-- DOWNLOAD -->
+  {% if report_filename %}
+  <div class="download-bar">
+    <div class="download-bar-left">
+      <div class="download-icon">📥</div>
+      <div>
+        <div class="download-title">Excel Report Ready</div>
+        <div class="download-sub">{{ report_filename }} — all sheets included</div>
+      </div>
+    </div>
+    <a href="{{ url_for('download', filename=report_filename) }}" class="btn-download">
+      ⬇ Download Report
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- FILTER -->
+  <div class="toolbar">
+    <span class="filter-label">🔍</span>
+    <input type="text" class="filter-input" id="filter-input" placeholder="Filter across all tables…">
+  </div>
+
+  <!-- ── DUPLICATES REMOVED ── -->
+  <div class="detail-section">
+    <div class="section-head">
+      <div class="section-dot dot-dup"></div>
+      <span class="section-title">Duplicates Removed</span>
+      <span class="section-count count-dup">{{ result.duplicates_removed | length if result and result.duplicates_removed is not none else 0 }}</span>
+    </div>
+    {% if result and result.duplicates_removed is not none and result.duplicates_removed | length > 0 %}
+    <div class="table-scroll">
+      <table class="detail-table" data-table>
+        <thead><tr>
+          <th data-sort>Source</th><th data-sort>Sport</th><th data-sort>Region</th>
+          <th data-sort>League</th><th data-sort>Event</th>
+          <th data-sort>Start (UTC+2)</th><th data-sort>Info</th>
+        </tr></thead>
+        <tbody>
+          {% for row in result.duplicates_removed.itertuples() %}
+          <tr>
+            <td><span class="src-badge">{{ row.source if row.source is defined else '' }}</span></td>
+            <td>{{ row.sport if row.sport is defined else '' }}</td>
+            <td>{{ row.region if row.region is defined else '' }}</td>
+            <td>{{ row.league if row.league is defined else '' }}</td>
+            <td class="event-cell">{{ row.event_name if row.event_name is defined else '' }}</td>
+            <td style="white-space:nowrap;">{{ row.start_datetime if row.start_datetime is defined else '' }}</td>
+            <td>{{ row.info if row.info is defined else '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">✓ No duplicates found</div>
+    {% endif %}
+  </div>
+
+  <!-- ── BLACKLISTED ── -->
+  <div class="detail-section">
+    <div class="section-head">
+      <div class="section-dot dot-bl"></div>
+      <span class="section-title">Blacklisted Removed</span>
+      <span class="section-count count-bl">{{ result.blacklisted_removed | length if result and result.blacklisted_removed is not none else 0 }}</span>
+    </div>
+    {% if result and result.blacklisted_removed is not none and result.blacklisted_removed | length > 0 %}
+    <div class="table-scroll">
+      <table class="detail-table" data-table>
+        <thead><tr>
+          <th data-sort>Source</th><th data-sort>Sport</th><th data-sort>Region</th>
+          <th data-sort>League</th><th data-sort>Event</th>
+          <th data-sort>Start (UTC+2)</th><th data-sort>Info</th>
+        </tr></thead>
+        <tbody>
+          {% for row in result.blacklisted_removed.itertuples() %}
+          <tr>
+            <td><span class="src-badge">{{ row.source if row.source is defined else '' }}</span></td>
+            <td>{{ row.sport if row.sport is defined else '' }}</td>
+            <td>{{ row.region if row.region is defined else '' }}</td>
+            <td>{{ row.league if row.league is defined else '' }}</td>
+            <td class="event-cell">{{ row.event_name if row.event_name is defined else '' }}</td>
+            <td style="white-space:nowrap;">{{ row.start_datetime if row.start_datetime is defined else '' }}</td>
+            <td>{{ row.info if row.info is defined else '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">✓ No blacklisted events removed</div>
+    {% endif %}
+  </div>
+
+  <!-- ── TIME CHANGES ── -->
+  <div class="detail-section">
+    <div class="section-head">
+      <div class="section-dot dot-time"></div>
+      <span class="section-title">Time Changes</span>
+      <span class="section-count count-time">{{ result.time_changes | length if result and result.time_changes is not none else 0 }}</span>
+    </div>
+    {% if result and result.time_changes is not none and result.time_changes | length > 0 %}
+    <div class="table-scroll">
+      <table class="detail-table" data-table>
+        <thead><tr>
+          <th data-sort>Source</th><th data-sort>Sport</th><th data-sort>Region</th>
+          <th data-sort>League</th><th data-sort>Event</th>
+          <th data-sort>Old Time</th><th data-sort>New Time</th><th data-sort>Info</th>
+        </tr></thead>
+        <tbody>
+          {% for row in result.time_changes.itertuples() %}
+          <tr>
+            <td><span class="src-badge">{{ row.source if row.source is defined else '' }}</span></td>
+            <td>{{ row.sport if row.sport is defined else '' }}</td>
+            <td>{{ row.region if row.region is defined else '' }}</td>
+            <td>{{ row.league if row.league is defined else '' }}</td>
+            <td class="event-cell">{{ row.event_name if row.event_name is defined else '' }}</td>
+            <td class="time-old" style="white-space:nowrap;">{{ row.old_time if row.old_time is defined else '' }}</td>
+            <td class="time-new" style="white-space:nowrap;">{{ row.new_time if row.new_time is defined else '' }}</td>
+            <td>{{ row.info if row.info is defined else '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">✓ No time changes detected</div>
+    {% endif %}
+  </div>
+
+  <!-- ── CHANNEL CHANGES ── -->
+  <div class="detail-section">
+    <div class="section-head">
+      <div class="section-dot dot-ch"></div>
+      <span class="section-title">Channel Changes</span>
+      <span class="section-count count-ch">{{ result.channel_changes | length if result and result.channel_changes is not none else 0 }}</span>
+    </div>
+    {% if result and result.channel_changes is not none and result.channel_changes | length > 0 %}
+    <div class="table-scroll">
+      <table class="detail-table" data-table>
+        <thead><tr>
+          <th data-sort>Source</th><th data-sort>Sport</th><th data-sort>Region</th>
+          <th data-sort>League</th><th data-sort>Event</th>
+          <th data-sort>Start (UTC+2)</th><th data-sort>LBC</th><th data-sort>Change To</th><th data-sort>Info</th>
+        </tr></thead>
+        <tbody>
+          {% for row in result.channel_changes.itertuples() %}
+          <tr>
+            <td><span class="src-badge">{{ row.source if row.source is defined else '' }}</span></td>
+            <td>{{ row.sport if row.sport is defined else '' }}</td>
+            <td>{{ row.region if row.region is defined else '' }}</td>
+            <td>{{ row.league if row.league is defined else '' }}</td>
+            <td class="event-cell">{{ row.event_name if row.event_name is defined else '' }}</td>
+            <td style="white-space:nowrap;">{{ row.start_datetime if row.start_datetime is defined else '' }}</td>
+            <td><span class="ch-from">{{ row.lbc_channel if row.lbc_channel is defined else '' }}</span></td>
+            <td><span class="ch-to">{{ row.assigned_channel if row.assigned_channel is defined else '' }}</span></td>
+            <td>{{ row.info if row.info is defined else '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">✓ No channel changes required</div>
+    {% endif %}
+  </div>
+
+  <!-- ── FRESH ADDITIONS ── -->
+  <div class="detail-section">
+    <div class="section-head">
+      <div class="section-dot dot-add"></div>
+      <span class="section-title">Fresh Additions</span>
+      <span class="section-count count-add">{{ result.additions | length if result and result.additions is not none else 0 }}</span>
+    </div>
+    {% if result and result.additions is not none and result.additions | length > 0 %}
+    <div class="table-scroll">
+      <table class="detail-table" data-table>
+        <thead><tr>
+          <th data-sort>Source</th><th data-sort>Sport</th><th data-sort>Region</th>
+          <th data-sort>League</th><th data-sort>Event</th>
+          <th data-sort>Start (UTC+2)</th><th data-sort>Channel</th><th data-sort>Info</th>
+        </tr></thead>
+        <tbody>
+          {% for row in result.additions.itertuples() %}
+          <tr>
+            <td><span class="src-badge">{{ row.source if row.source is defined else '' }}</span></td>
+            <td>{{ row.sport if row.sport is defined else '' }}</td>
+            <td>{{ row.region if row.region is defined else '' }}</td>
+            <td>{{ row.league if row.league is defined else '' }}</td>
+            <td class="event-cell">{{ row.event_name if row.event_name is defined else '' }}</td>
+            <td style="white-space:nowrap;">{{ row.start_datetime if row.start_datetime is defined else '' }}</td>
+            <td>{{ row.assigned_channel if row.assigned_channel is defined else '' }}</td>
+            <td>{{ row.info if row.info is defined else '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">✓ No fresh additions found</div>
+    {% endif %}
+  </div>
+
+  <!-- ── NO SOURCE ── -->
+  <div class="detail-section">
+    <div class="section-head">
+      <div class="section-dot dot-nosrc"></div>
+      <span class="section-title">No Source</span>
+      <span class="section-count count-nosrc">{{ result.no_source | length if result and result.no_source is not none else 0 }}</span>
+    </div>
+    {% if result and result.no_source is not none and result.no_source | length > 0 %}
+    <div class="table-scroll">
+      <table class="detail-table" data-table>
+        <thead><tr>
+          <th data-sort>LBC Channel</th><th data-sort>Sport</th><th data-sort>Region</th>
+          <th data-sort>League</th><th data-sort>Event</th>
+          <th data-sort>Start (UTC+2)</th><th data-sort>Info</th>
+        </tr></thead>
+        <tbody>
+          {% for row in result.no_source.itertuples() %}
+          <tr>
+            <td><span class="src-badge">{{ row.lbc_channel if row.lbc_channel is defined else 'LBC' }}</span></td>
+            <td>{{ row.sport if row.sport is defined else '' }}</td>
+            <td>{{ row.region if row.region is defined else '' }}</td>
+            <td>{{ row.league if row.league is defined else '' }}</td>
+            <td class="event-cell">{{ row.event_name if row.event_name is defined else '' }}</td>
+            <td style="white-space:nowrap;">{{ row.start_datetime if row.start_datetime is defined else '' }}</td>
+            <td>{{ row.info if row.info is defined else '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">✓ All LBC events have a provider source</div>
+    {% endif %}
+  </div>
+
+  {% endif %}
+</div>
+
+<script>
+(function(){
+  // FILTER
+  var fi = document.getElementById('filter-input');
+  if(fi){
+    fi.addEventListener('input',function(){
+      var t=this.value.toLowerCase();
+      document.querySelectorAll('[data-table]').forEach(function(tbl){
+        tbl.querySelectorAll('tbody tr').forEach(function(r){
+          r.style.display=r.textContent.toLowerCase().includes(t)?'':'none';
+        });
+      });
+    });
+  }
+
+  // SORT
+  document.querySelectorAll('[data-table] th[data-sort]').forEach(function(th){\n    th.addEventListener('click',function(){\n      var table=th.closest('table');\n      var tbody=table.querySelector('tbody');\n      var rows=Array.from(tbody.querySelectorAll('tr'));\n      var col=Array.from(th.parentNode.children).indexOf(th);\n      var asc=th.dataset.asc!=='1';\n      th.dataset.asc=asc?'1':'0';\n      th.parentNode.querySelectorAll('th').forEach(function(t){\n        if(t!==th){delete t.dataset.asc;t.classList.remove('sorted-asc','sorted-desc');}\n        t.textContent=t.textContent.replace(/ [▲▼]$/,'');\n      });\n      th.classList.remove('sorted-asc','sorted-desc');\n      th.classList.add(asc?'sorted-asc':'sorted-desc');\n      th.textContent=th.textContent.replace(/ [▲▼]$/,'')+(asc?' ▲':' ▼');\n      rows.sort(function(a,b){\n        var at=a.children[col].textContent.trim();\n        var bt=b.children[col].textContent.trim();\n        if(!isNaN(at)&&!isNaN(bt))return asc?at-bt:bt-at;\n        return asc?at.localeCompare(bt):bt.localeCompare(at);\n      });\n      rows.forEach(function(r){tbody.appendChild(r);});\n    });\n  });
+
+  // BADGE COLOURS — applied after render
+  document.querySelectorAll('.src-badge').forEach(function(b){
+    var src=(b.textContent||'').trim().toLowerCase();
+    b.className='src-badge';
+    if(src==='br')b.classList.add('src-br');
+    else if(src==='bg')b.classList.add('src-bg');
+    else if(src==='rball')b.classList.add('src-rb');
+    else if(src==='lbc')b.classList.add('src-lbc');
+    else b.classList.add('src-unk');
+  });
+})();
+</script>
+</body>
+</html>
