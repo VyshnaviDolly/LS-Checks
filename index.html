@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Scheduling Pipeline — Sports Data Operations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #0a0c10;
+      --surface:   #0f1218;
+      --card:      #13171f;
+      --border:    #1e2535;
+      --border-hi: #2c3650;
+      --gold:      #e8b84b;
+      --gold-lt:   #f5d080;
+      --gold-dk:   #a8812a;
+      --red:       #e05555;
+      --green:     #3ecf8e;
+      --blue:      #4a7fe0;
+      --text:      #dce4f0;
+      --text-2:    #8a97b0;
+      --text-3:    #3a4a62;
+      --white:     #ffffff;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.5;
+    }
+    .ambient {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    }
+    .ambient::before {
+      content: ''; position: absolute; top: -20%; right: -10%;
+      width: 55vw; height: 55vw;
+      background: radial-gradient(circle, rgba(232,184,75,.045) 0%, transparent 65%);
+    }
+    .ambient::after {
+      content: ''; position: absolute; bottom: -10%; left: -5%;
+      width: 40vw; height: 40vw;
+      background: radial-gradient(circle, rgba(74,127,224,.03) 0%, transparent 65%);
+    }
+
+    /* TOPBAR */
+    .topbar {
+      position: sticky; top: 0; z-index: 200; height: 58px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2.5rem;
+      background: rgba(10,12,16,.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(24px);
+    }
+    .logo { display: flex; align-items: center; gap: .75rem; }
+    .logo-mark {
+      width: 32px; height: 32px; border-radius: 7px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-dk));
+      display: flex; align-items: center; justify-content: center;
+      font-size: .9rem; flex-shrink: 0;
+      box-shadow: 0 0 0 1px rgba(232,184,75,.3), 0 4px 12px rgba(232,184,75,.18);
+    }
+    .logo-name {
+      font-family: 'Bebas Neue', sans-serif; font-size: 1.35rem;
+      letter-spacing: .08em; color: var(--white); line-height: 1;
+    }
+    .logo-name span { color: var(--gold); }
+    .topbar-meta { display: flex; align-items: center; gap: 1.5rem; }
+    .topbar-tag { font-size: .7rem; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--text-2); }
+    .status-dot { display: flex; align-items: center; gap: .4rem; font-size: .72rem; color: var(--green); font-weight: 500; }
+    .status-dot::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green); box-shadow: 0 0 6px var(--green);
+      animation: pulse-dot 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity:1; box-shadow: 0 0 6px var(--green); }
+      50% { opacity:.5; box-shadow: 0 0 2px var(--green); }
+    }
+
+    /* HERO */
+    .hero-wrap {
+      position: relative; z-index: 1;
+      max-width: 1100px; margin: 0 auto;
+      padding: 4rem 2.5rem 2.5rem;
+      animation: fadeUp .5s ease both;
+    }
+    .hero-kicker {
+      display: inline-flex; align-items: center; gap: .5rem;
+      font-size: .68rem; font-weight: 600; letter-spacing: .2em; text-transform: uppercase;
+      color: var(--gold); margin-bottom: 1rem;
+      padding: .3rem .8rem .3rem .6rem;
+      border: 1px solid rgba(232,184,75,.22); border-radius: 100px;
+      background: rgba(232,184,75,.06);
+    }
+    .kicker-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--gold); box-shadow: 0 0 5px var(--gold);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    .hero-headline {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(3rem, 7vw, 5.5rem);
+      line-height: .92; letter-spacing: .03em; color: var(--white); margin-bottom: 1.4rem;
+    }
+    .hero-headline .accent { color: var(--gold); }
+    .hero-headline .outline { -webkit-text-stroke: 1px rgba(255,255,255,.2); color: transparent; }
+    .hero-body { max-width: 560px; font-size: .93rem; color: var(--text-2); line-height: 1.7; margin-bottom: 2rem; }
+    .stat-row { display: flex; gap: 2rem; flex-wrap: wrap; }
+    .stat-item { display: flex; flex-direction: column; gap: .15rem; }
+    .stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--gold); letter-spacing: .04em; line-height: 1; }
+    .stat-label { font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); font-weight: 500; }
+
+    /* STEPS */
+    .steps-wrap {
+      position: relative; z-index: 1;
+      max-width: 1100px; margin: 0 auto;
+      padding: 0 2.5rem 2rem;
+      animation: fadeUp .5s .08s ease both;
+    }
+    .steps-track { display: flex; align-items: center; }
+    .step-item { display: flex; align-items: center; gap: .6rem; flex: 1; position: relative; }
+    .step-item:not(:last-child)::after {
+      content: ''; flex: 1; height: 1px; background: var(--border); margin: 0 .5rem;
+    }
+    .step-item.active:not(:last-child)::after {
+      background: linear-gradient(90deg, var(--gold-dk), var(--border));
+    }
+    .step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; font-weight: 700; flex-shrink: 0;
+      border: 1.5px solid var(--border); color: var(--text-3); transition: all .3s;
+    }
+    .step-item.active .step-num {
+      border-color: var(--gold); background: var(--gold); color: #0a0c10;
+      box-shadow: 0 0 16px rgba(232,184,75,.35);
+    }
+    .step-label { font-size: .75rem; font-weight: 500; color: var(--text-3); white-space: nowrap; }
+    .step-item.active .step-label { color: var(--text); }
+
+    /* INTEL BOX */
+    .intel-wrap {
+      position: relative; z-index: 1;
+      max-width: 1100px; margin: 0 auto;
+      padding: 0 2.5rem 1.5rem;
+      animation: fadeUp .5s .14s ease both;
+    }
+    .intel-box {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1rem 1.5rem; display: flex; align-items: flex-start; gap: 1.2rem;
+    }
+    .intel-icon {
+      width: 34px; height: 34px; border-radius: 8px;
+      background: rgba(232,184,75,.1); border: 1px solid rgba(232,184,75,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .9rem; flex-shrink: 0; margin-top: .1rem;
+    }
+    .intel-title { font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); margin-bottom: .4rem; }
+    .intel-text { font-size: .81rem; color: var(--text-2); line-height: 1.6; }
+    .intel-text strong { color: var(--text); font-weight: 600; }
+    .priority-chain { display: inline-flex; align-items: center; gap: .4rem; margin-top: .55rem; flex-wrap: wrap; }
+    .prov-tag { font-family: 'DM Mono', monospace; font-size: .72rem; font-weight: 500; padding: .2rem .55rem; border-radius: 5px; border: 1px solid; }
+    .prov-tag.bg { border-color: rgba(232,184,75,.4); color: var(--gold); background: rgba(232,184,75,.08); }
+    .prov-tag.br { border-color: rgba(74,127,224,.4); color: #7aa4f0; background: rgba(74,127,224,.08); }
+    .prov-tag.rb { border-color: rgba(62,207,142,.4); color: var(--green); background: rgba(62,207,142,.08); }
+    .arrow { color: var(--text-3); font-size: .8rem; }
+    .venue-tag { font-size: .72rem; padding: .2rem .55rem; border-radius: 5px; border: 1px solid rgba(224,85,85,.3); color: #f07070; background: rgba(224,85,85,.07); font-weight: 500; }
+
+    /* MAIN LAYOUT */
+    .form-wrap {
+      position: relative; z-index: 1;
+      max-width: 1100px; margin: 0 auto;
+      padding: 0 2.5rem 5rem;
+      display: grid; grid-template-columns: 1fr 310px;
+      gap: 1.4rem; align-items: start;
+      animation: fadeUp .5s .2s ease both;
+    }
+
+    /* FORM CARD */
+    .form-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 1.2rem; }
+    .form-card:last-child { margin-bottom: 0; }
+    .section-head {
+      padding: 1.1rem 1.75rem; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .section-head-left { display: flex; align-items: center; gap: .7rem; }
+    .section-icon {
+      width: 30px; height: 30px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .85rem; flex-shrink: 0;
+    }
+    .section-icon.gold { background: rgba(232,184,75,.12); border: 1px solid rgba(232,184,75,.22); }
+    .section-icon.blue { background: rgba(74,127,224,.12); border: 1px solid rgba(74,127,224,.22); }
+    .section-title { font-size: .8rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text); }
+    .section-badge { font-family: 'DM Mono', monospace; font-size: .68rem; padding: .18rem .55rem; border-radius: 4px; background: rgba(232,184,75,.08); color: var(--gold); border: 1px solid rgba(232,184,75,.18); letter-spacing: .06em; }
+
+    .form-body { padding: 1.6rem 1.75rem; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem 1.5rem; }
+    .form-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .form-group { display: flex; flex-direction: column; gap: .38rem; }
+
+    label { font-size: .7rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-2); display: flex; align-items: center; gap: .4rem; }
+    .req { color: var(--red); font-size: .85em; }
+
+    .select-wrap { position: relative; }
+    .select-wrap::after {
+      content: ''; position: absolute; right: .85rem; top: 50%; transform: translateY(-50%);
+      width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent;
+      border-top: 5px solid var(--text-2); pointer-events: none;
+    }
+
+    input[type="text"], input[type="date"], select {
+      width: 100%; padding: .6rem .9rem;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); font-family: 'DM Sans', sans-serif; font-size: .87rem;
+      outline: none; transition: border-color .18s, box-shadow .18s, background .18s;
+      -webkit-appearance: none; appearance: none;
+    }
+    select { padding-right: 2.2rem; }
+    input[type="text"]:hover, input[type="date"]:hover, select:hover { border-color: var(--border-hi); }
+    input[type="text"]:focus, input[type="date"]:focus, select:focus {
+      border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232,184,75,.1); background: #101420;
+    }
+    select option { background: #13171f; }
+
+    /* FILE DROP ZONES */
+    .file-drop { position: relative; width: 100%; }
+    .file-drop input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; z-index: 2; width: 100%; height: 100%; }
+    .file-drop-ui {
+      background: var(--surface); border: 1.5px dashed var(--border); border-radius: 9px;
+      padding: .85rem 1rem; display: flex; align-items: center; gap: .75rem;
+      transition: border-color .2s, background .2s, box-shadow .2s;
+      cursor: pointer; min-height: 56px;
+    }
+    .file-drop:hover .file-drop-ui { border-color: var(--border-hi); background: #101420; }
+    .file-drop.has-file .file-drop-ui { border-style: solid; border-color: rgba(62,207,142,.4); background: rgba(62,207,142,.04); }
+    .file-drop.required-field .file-drop-ui { border-color: rgba(232,184,75,.35); }
+    .file-drop.drag-over .file-drop-ui { border-color: var(--gold); background: rgba(232,184,75,.05); box-shadow: 0 0 0 3px rgba(232,184,75,.1); }
+    .drop-icon {
+      width: 30px; height: 30px; border-radius: 6px; background: var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .82rem; flex-shrink: 0; transition: background .2s;
+    }
+    .file-drop.has-file .drop-icon { background: rgba(62,207,142,.15); }
+    .file-drop.required-field .drop-icon { background: rgba(232,184,75,.1); }
+    .drop-text { flex: 1; min-width: 0; }
+    .drop-main { font-size: .8rem; font-weight: 500; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .2s; }
+    .file-drop.has-file .drop-main { color: var(--green); }
+    .drop-sub { font-size: .68rem; color: var(--text-3); margin-top: .1rem; }
+    .drop-clear {
+      background: transparent; border: 1px solid var(--border-hi); color: var(--text-2);
+      border-radius: 5px; padding: .2rem .5rem; font-size: .68rem; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; transition: border-color .15s, color .15s;
+      flex-shrink: 0; display: none; z-index: 3; position: relative;
+    }
+    .file-drop.has-file .drop-clear { display: block; }
+    .drop-clear:hover { border-color: var(--red); color: var(--red); }
+
+    .field-hint { font-size: .69rem; color: var(--text-3); line-height: 1.45; }
+
+    .section-label {
+      font-size: .68rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+      color: var(--text-3); margin-bottom: 1rem;
+      display: flex; align-items: center; gap: .6rem;
+    }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .form-footer {
+      padding: 1.1rem 1.75rem; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; background: rgba(10,12,16,.4);
+    }
+    .footer-note { font-size: .75rem; color: var(--text-3); line-height: 1.5; display: flex; align-items: center; gap: .5rem; }
+
+    .btn-run {
+      display: inline-flex; align-items: center; gap: .55rem;
+      padding: .72rem 2.2rem;
+      background: linear-gradient(135deg, var(--gold), #c99c30);
+      color: #080a0d; border: none; border-radius: 9px;
+      font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: .1em;
+      cursor: pointer; transition: all .2s; white-space: nowrap; flex-shrink: 0;
+      position: relative; overflow: hidden;
+      box-shadow: 0 2px 16px rgba(232,184,75,.22);
+    }
+    .btn-run::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,.15), transparent); opacity: 0; transition: opacity .2s; }
+    .btn-run:hover::before { opacity: 1; }
+    .btn-run:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(232,184,75,.35); }
+    .btn-run:active { transform: translateY(0); }
+    .btn-run:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    /* SIDEBAR */
+    .sidebar { display: flex; flex-direction: column; gap: 1rem; }
+    .side-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .side-card-head {
+      padding: .85rem 1.2rem; border-bottom: 1px solid var(--border);
+      font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--text-2); display: flex; align-items: center; gap: .5rem;
+    }
+    .side-card-body { padding: 1rem 1.2rem; }
+
+    .sport-display {
+      display: flex; align-items: center; gap: .8rem;
+      padding: .75rem 1rem; border-radius: 9px;
+      background: var(--surface); border: 1px solid var(--border);
+    }
+    .sport-emoji { font-size: 1.8rem; line-height: 1; }
+    .sport-info { flex: 1; }
+    .sport-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; letter-spacing: .04em; color: var(--text); line-height: 1; }
+    .sport-sub { font-size: .69rem; color: var(--text-3); margin-top: .15rem; }
+    .rball-badge {
+      font-size: .65rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+      padding: .2rem .5rem; border-radius: 4px;
+      border: 1px solid rgba(62,207,142,.35); color: var(--green); background: rgba(62,207,142,.08);
+      display: none;
+    }
+    .rball-badge.show { display: block; }
+
+    .prov-list { display: flex; flex-direction: column; gap: .55rem; }
+    .prov-row {
+      display: flex; align-items: center; gap: .75rem;
+      padding: .6rem .85rem; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface);
+      transition: border-color .18s, opacity .3s;
+    }
+    .prov-row:hover { border-color: var(--border-hi); }
+    .prov-rank { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; line-height: 1; color: var(--text-3); width: 16px; text-align: center; flex-shrink: 0; }
+    .prov-row.rank-1 .prov-rank { color: var(--gold); }
+    .prov-row.rank-2 .prov-rank { color: #7aa4f0; }
+    .prov-row.rank-3 .prov-rank { color: var(--green); }
+    .prov-info { flex: 1; min-width: 0; }
+    .prov-name { font-size: .8rem; font-weight: 600; color: var(--text); }
+    .prov-desc { font-size: .69rem; color: var(--text-3); margin-top: .1rem; }
+    .prov-code { font-family: 'DM Mono', monospace; font-size: .72rem; padding: .15rem .45rem; border-radius: 4px; }
+    .prov-row.rank-1 .prov-code { background: rgba(232,184,75,.1); color: var(--gold); }
+    .prov-row.rank-2 .prov-code { background: rgba(74,127,224,.1); color: #7aa4f0; }
+    .prov-row.rank-3 .prov-code { background: rgba(62,207,142,.1); color: var(--green); }
+
+    .check-list { display: flex; flex-direction: column; gap: .5rem; }
+    .check-item {
+      padding: .6rem .85rem; border-radius: 7px;
+      border: 1px solid var(--border); background: var(--surface);
+      cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .check-item.active { border-color: rgba(232,184,75,.35); background: rgba(232,184,75,.04); }
+    .check-item-name { font-size: .78rem; font-weight: 600; color: var(--text); margin-bottom: .2rem; }
+    .check-item.active .check-item-name { color: var(--gold); }
+    .check-item-desc { font-size: .69rem; color: var(--text-3); line-height: 1.4; }
+
+    /* LOADING */
+    #loading-overlay {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(10,12,16,.96); backdrop-filter: blur(12px);
+      flex-direction: column; align-items: center; justify-content: center; gap: 2rem;
+    }
+    #loading-overlay.show { display: flex; }
+    .loader-ring { width: 64px; height: 64px; position: relative; }
+    .loader-ring::before, .loader-ring::after {
+      content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent;
+    }
+    .loader-ring::before { border-top-color: var(--gold); animation: spin .9s linear infinite; }
+    .loader-ring::after { border-bottom-color: rgba(232,184,75,.25); animation: spin 1.6s linear infinite reverse; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; letter-spacing: .1em; color: var(--gold); margin-bottom: .4rem; }
+    .loader-step { font-size: .78rem; color: var(--text-3); display: flex; align-items: center; justify-content: center; gap: .5rem; margin-top: .3rem; transition: color .4s; }
+    .loader-step.active { color: var(--text-2); }
+    .loader-step::before { content: '—'; color: var(--text-3); font-size: .6rem; }
+    .loader-step.active::before { content: '▸'; color: var(--gold); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 860px) {
+      .form-wrap { grid-template-columns: 1fr; }
+      .sidebar { order: -1; }
+      .side-card:not(:first-child) { display: none; }
+    }
+    @media (max-width: 620px) {
+      .form-grid, .form-grid.cols-3 { grid-template-columns: 1fr; }
+      .form-footer { flex-direction: column; align-items: stretch; }
+      .btn-run { justify-content: center; }
+      .topbar, .hero-wrap, .steps-wrap, .intel-wrap, .form-wrap { padding-left: 1.2rem; padding-right: 1.2rem; }
+      .step-label { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="ambient"></div>
+
+<!-- LOADING OVERLAY -->
+<div id="loading-overlay">
+  <div class="loader-ring"></div>
+  <div style="text-align:center;">
+    <div class="loader-title">Pipeline Running</div>
+    <div style="font-size:.8rem;color:var(--text-2);">Processing provider feeds…</div>
+    <div style="margin-top:.8rem;">
+      <div class="loader-step" id="ls1">Ingesting provider files</div>
+      <div class="loader-step" id="ls2">Running deduplication engine</div>
+      <div class="loader-step" id="ls3">Scoring &amp; prioritising events</div>
+      <div class="loader-step" id="ls4">Comparing against LBC reference</div>
+      <div class="loader-step" id="ls5">Generating Excel report</div>
+    </div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<nav class="topbar">
+  <div class="logo">
+    <div class="logo-mark">📡</div>
+    <div class="logo-name">Live <span>Scheduling</span> Pipeline</div>
+  </div>
+  <div class="topbar-meta">
+    <div class="status-dot">System Operational</div>
+    <div class="topbar-tag">Sports Data Ops</div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero-wrap">
+  <div class="hero-kicker">
+    <div class="kicker-dot"></div>
+    Daily Quality Check — Sports Data Operations
+  </div>
+  <h1 class="hero-headline">
+    Live <span class="accent">Scheduling</span><br>
+    <span class="outline">Daily</span> Checks
+  </h1>
+  <p class="hero-body">
+    Upload provider feeds and the LBC reference sheet to detect duplicates, time changes, channel conflicts, and fresh additions across all sports — all in one pipeline run.
+  </p>
+  <div class="stat-row">
+    <div class="stat-item"><div class="stat-val">5</div><div class="stat-label">Sports Covered</div></div>
+    <div class="stat-item"><div class="stat-val">3</div><div class="stat-label">Data Providers</div></div>
+    <div class="stat-item"><div class="stat-val">4</div><div class="stat-label">Check Modes</div></div>
+    <div class="stat-item"><div class="stat-val">XLS</div><div class="stat-label">Output Format</div></div>
+  </div>
+</div>
+
+<!-- STEPS -->
+<div class="steps-wrap">
+  <div class="steps-track">
+    <div class="step-item active"><div class="step-num">1</div><div class="step-label">Configure</div></div>
+    <div class="step-item"><div class="step-num">2</div><div class="step-label">Upload Files</div></div>
+    <div class="step-item"><div class="step-num">3</div><div class="step-label">Review Results</div></div>
+    <div class="step-item"><div class="step-num">4</div><div class="step-label">Download Report</div></div>
+  </div>
+</div>
+
+<!-- INTEL BOX -->
+<div class="intel-wrap">
+  <div class="intel-box">
+    <div class="intel-icon">⚡</div>
+    <div style="flex:1;">
+      <div class="intel-title">Provider Priority Chain — Basketball</div>
+      <div class="intel-text">
+        Deduplication follows a strict hierarchy. <strong>Venue / blank source always beats TV broadcast</strong> — prefer stadium-side data over broadcast metadata. The highest-priority provider row is retained on conflict.
+      </div>
+      <div class="priority-chain">
+        <span class="prov-tag bg">BG · Genius Sports</span>
+        <span class="arrow">→</span>
+        <span class="prov-tag br">BR · Sportradar</span>
+        <span class="arrow">→</span>
+        <span class="prov-tag rb">RB · Rball</span>
+        <span class="arrow" style="margin-left:.4rem;">|</span>
+        <span class="venue-tag">⚠ Venue / Blank beats TV</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FORM + SIDEBAR -->
+<div class="form-wrap">
+  <form method="POST" action="/run" enctype="multipart/form-data" id="pipeline-form">
+
+    <!-- Card 1: Configuration -->
+    <div class="form-card">
+      <div class="section-head">
+        <div class="section-head-left">
+          <div class="section-icon gold">⚙️</div>
+          <div class="section-title">Check Configuration</div>
+        </div>
+        <div class="section-badge">Step 1</div>
+      </div>
+      <div class="form-body">
+        <div class="form-grid cols-3">
+          <div class="form-group">
+            <label for="check_type">Check Type <span class="req">*</span></label>
+            <div class="select-wrap">
+              <select name="check_type" id="check_type">
+                <option value="current_day">Current Day</option>
+                <option value="current_day_double_check" selected>Current Day Double</option>
+                <option value="upcoming_day">Upcoming Day</option>
+                <option value="upcoming_day_double_check">Upcoming Day Double</option>
+              </select>
+            </div>
+            <span class="field-hint">Double check compares against LBC reference.</span>
+          </div>
+          <div class="form-group">
+            <label for="sport">Sport <span class="req">*</span></label>
+            <div class="select-wrap">
+              <select name="sport" id="sport">
+                <option value="Basketball" selected>🏀 Basketball</option>
+                <option value="Volleyball">🏐 Volleyball</option>
+                <option value="Handball">🤾 Handball</option>
+                <option value="Ice Hockey">🏒 Ice Hockey</option>
+                <option value="Baseball">⚾ Baseball</option>
+              </select>
+            </div>
+            <span class="field-hint">Sets active provider priority chain.</span>
+          </div>
+          <div class="form-group">
+            <label for="target_date">Target Date <span class="req">*</span></label>
+            <input type="date" name="target_date" id="target_date">
+            <span class="field-hint">Defaults to today if left blank.</span>
+          </div>
+        </div>
+        <div style="margin-top:1.1rem;">
+          <div class="form-group" style="max-width:220px;">
+            <label for="end_date">End Date <span style="font-weight:400;opacity:.5;text-transform:none;letter-spacing:0;font-size:.95em;">(range, optional)</span></label>
+            <input type="date" name="end_date" id="end_date">
+            <span class="field-hint">For multi-day upcoming checks only.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Provider Files -->
+    <div class="form-card">
+      <div class="section-head">
+        <div class="section-head-left">
+          <div class="section-icon blue">📂</div>
+          <div class="section-title">Provider Files</div>
+        </div>
+        <div class="section-badge">Step 2</div>
+      </div>
+      <div class="form-body">
+        <div class="section-label">Primary Data Feeds</div>
+        <div class="form-grid">
+
+          <div class="form-group">
+            <label>Genius Sports <span style="font-family:'DM Mono',monospace;font-size:.85em;color:var(--gold);font-weight:400;text-transform:none;letter-spacing:0">[BG]</span></label>
+            <div class="file-drop" id="drop-bg">
+              <input type="file" name="bg_file" accept=".csv,.xlsx,.xls">
+              <div class="file-drop-ui">
+                <div class="drop-icon">📊</div>
+                <div class="drop-text">
+                  <div class="drop-main">Choose file or drag &amp; drop</div>
+                  <div class="drop-sub">CSV · XLS · XLSX</div>
+                </div>
+              </div>
+              <button type="button" class="drop-clear" data-drop="drop-bg">✕</button>
+            </div>
+            <span class="field-hint">Highest priority — Genius Sports feed.</span>
+          </div>
+
+          <div class="form-group">
+            <label>Sportradar <span style="font-family:'DM Mono',monospace;font-size:.85em;color:#7aa4f0;font-weight:400;text-transform:none;letter-spacing:0">[BR]</span></label>
+            <div class="file-drop" id="drop-br">
+              <input type="file" name="br_file" accept=".csv,.xlsx,.xls">
+              <div class="file-drop-ui">
+                <div class="drop-icon">📋</div>
+                <div class="drop-text">
+                  <div class="drop-main">Choose file or drag &amp; drop</div>
+                  <div class="drop-sub">CSV · XLS · XLSX</div>
+                </div>
+              </div>
+              <button type="button" class="drop-clear" data-drop="drop-br">✕</button>
+            </div>
+            <span class="field-hint">Secondary priority — Sportradar feed.</span>
+          </div>
+
+          <!-- Rball — Basketball & Ice Hockey only -->
+          <div class="form-group" id="rball-group" style="display:none;">
+            <label>Rball <span style="font-family:'DM Mono',monospace;font-size:.85em;color:var(--green);font-weight:400;text-transform:none;letter-spacing:0">[RB]</span> <span class="req">*</span></label>
+            <div class="file-drop required-field" id="drop-rball">
+              <input type="file" name="rball_file" id="rball_file" accept=".csv,.xlsx,.xls">
+              <div class="file-drop-ui">
+                <div class="drop-icon">🏀</div>
+                <div class="drop-text">
+                  <div class="drop-main">Choose file or drag &amp; drop</div>
+                  <div class="drop-sub">Required for this sport · CSV · XLS · XLSX</div>
+                </div>
+              </div>
+              <button type="button" class="drop-clear" data-drop="drop-rball">✕</button>
+            </div>
+            <span class="field-hint">Mandatory for Basketball &amp; Ice Hockey — lowest priority.</span>
+          </div>
+
+          <div class="form-group" id="lbc-group">
+            <label>LBC Reference <span style="font-weight:400;opacity:.5;font-size:.9em;text-transform:none;letter-spacing:0">/ Main Sheet</span></label>
+            <div class="file-drop" id="drop-lbc">
+              <input type="file" name="lbc_file" accept=".csv,.xlsx,.xls">
+              <div class="file-drop-ui">
+                <div class="drop-icon">📌</div>
+                <div class="drop-text">
+                  <div class="drop-main">Choose file or drag &amp; drop</div>
+                  <div class="drop-sub">Required for Double Check modes · CSV · XLS · XLSX</div>
+                </div>
+              </div>
+              <button type="button" class="drop-clear" data-drop="drop-lbc">✕</button>
+            </div>
+            <span class="field-hint">Master reference — required for all Double Check types.</span>
+          </div>
+
+        </div>
+
+        <div style="margin-top:1.5rem;">
+          <div class="section-label">Advanced Options</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>
+                Blacklist Filter
+                <span id="blacklist-lock-badge" style="{% if blacklist_locked %}display:inline-block{% else %}display:none{% endif %};font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .45rem;border-radius:4px;background:rgba(224,85,85,.12);color:var(--red);border:1px solid rgba(224,85,85,.3);">🔒 Locked</span>
+              </label>
+              {% if blacklist_locked %}
+              <!-- Blacklist is locked server-side — show locked state, hide upload -->
+              <div id="drop-blacklist" class="file-drop has-file" style="border-color:rgba(224,85,85,.4);pointer-events:none;opacity:.85;">
+                <input type="file" name="blacklist_file" id="blacklist_file" accept=".csv,.xlsx,.xls" style="display:none;" disabled>
+                <div class="file-drop-ui">
+                  <div class="drop-icon">🔒</div>
+                  <div class="drop-text">
+                    <div class="drop-main" style="color:var(--red);">{{ blacklist_locked }}</div>
+                    <div class="drop-sub" style="color:var(--red);">Locked for this session — remove to change</div>
+                  </div>
+                </div>
+              </div>
+              <span class="field-hint" id="blacklist-hint" style="color:var(--red);">{{ blacklist_locked }} — locked for this session.</span>
+              <form method="POST" action="/unlock-blacklist" style="margin-top:.4rem;">
+                <button type="submit" style="font-size:.72rem;padding:.3rem .75rem;border-radius:6px;background:rgba(224,85,85,.1);color:var(--red);border:1px solid rgba(224,85,85,.3);cursor:pointer;font-weight:600;">✕ Remove Blacklist Lock</button>
+              </form>
+              {% else %}
+              <div class="file-drop" id="drop-blacklist">
+                <input type="file" name="blacklist_file" id="blacklist_file" accept=".csv,.xlsx,.xls">
+                <div class="file-drop-ui">
+                  <div class="drop-icon">🚫</div>
+                  <div class="drop-text">
+                    <div class="drop-main">Choose file or drag &amp; drop</div>
+                    <div class="drop-sub">Optional · CSV · XLS · XLSX</div>
+                  </div>
+                </div>
+                <button type="button" class="drop-clear" data-drop="drop-blacklist">✕</button>
+              </div>
+              <span class="field-hint" id="blacklist-hint">Optional — suppresses matching events from additions list.</span>
+              {% endif %}
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.85rem 1rem;border-radius:9px;background:var(--surface);border:1px solid var(--border);align-self:start;margin-top:1.45rem;">
+              <div style="font-size:1.4rem;margin-top:.1rem;">🔒</div>
+              <div>
+                <div style="font-size:.77rem;font-weight:600;color:var(--text);margin-bottom:.25rem;">Blacklist Session Lock</div>
+                <div style="font-size:.69rem;color:var(--text-3);line-height:1.5;">Once locked, the blacklist persists across all checks and refreshes until you click Remove or restart the tool.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-footer">
+        <div class="footer-note">
+          <span style="font-size:.9rem;opacity:.6;">🔐</span>
+          <span>All files processed server-side only. No external transfers. Output includes a full multi-sheet Excel report.</span>
+        </div>
+        <button type="submit" class="btn-run" id="run-btn">▶&nbsp; Run Check</button>
+      </div>
+    </div>
+
+  </form>
+
+  <!-- Hidden form for auto-locking blacklist on file select -->
+  {% if not blacklist_locked %}
+  <form id="lock-blacklist-form" method="POST" action="/lock-blacklist" enctype="multipart/form-data" style="display:none;">
+    <input type="file" name="blacklist_file" accept=".csv,.xlsx,.xls">
+  </form>
+  {% endif %}
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <div class="side-card">
+      <div class="side-card-head"><span>🏟</span>&nbsp; Active Sport</div>
+      <div class="side-card-body">
+        <div class="sport-display">
+          <div class="sport-emoji" id="sport-emoji">🏀</div>
+          <div class="sport-info">
+            <div class="sport-name" id="sport-name">Basketball</div>
+            <div class="sport-sub" id="sport-sub">3 providers active</div>
+          </div>
+          <div class="rball-badge" id="rball-badge">+ Rball</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-card">
+      <div class="side-card-head"><span>⚡</span>&nbsp; Provider Priority</div>
+      <div class="side-card-body">
+        <div class="prov-list">
+          <div class="prov-row rank-1">
+            <div class="prov-rank">1</div>
+            <div class="prov-info"><div class="prov-name">Genius Sports</div><div class="prov-desc">All sports</div></div>
+            <span class="prov-code">BG</span>
+          </div>
+          <div class="prov-row rank-2">
+            <div class="prov-rank">2</div>
+            <div class="prov-info"><div class="prov-name">Sportradar</div><div class="prov-desc">All sports</div></div>
+            <span class="prov-code">BR</span>
+          </div>
+          <div class="prov-row rank-3" id="sidebar-rball-row">
+            <div class="prov-rank">3</div>
+            <div class="prov-info"><div class="prov-name">Rball</div><div class="prov-desc" style="font-style:italic;">Basketball · Ice Hockey only</div></div>
+            <span class="prov-code">RB</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-card">
+      <div class="side-card-head"><span>📋</span>&nbsp; Check Mode Guide</div>
+      <div class="side-card-body">
+        <div class="check-list">
+          <div class="check-item" data-val="current_day">
+            <div class="check-item-name">Current Day</div>
+            <div class="check-item-desc">Deduplicates and scores today's feed. No LBC reference required.</div>
+          </div>
+          <div class="check-item active" data-val="current_day_double_check">
+            <div class="check-item-name">Current Day Double ✓</div>
+            <div class="check-item-desc">Compares today's deduplicated feed against LBC master. Highlights time, channel, and addition changes.</div>
+          </div>
+          <div class="check-item" data-val="upcoming_day">
+            <div class="check-item-name">Upcoming Day</div>
+            <div class="check-item-desc">Processes a future date's provider feeds. No LBC reference needed.</div>
+          </div>
+          <div class="check-item" data-val="upcoming_day_double_check">
+            <div class="check-item-name">Upcoming Day Double</div>
+            <div class="check-item-desc">Future-date feed vs. LBC for pre-broadcast quality assurance.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* LOADING */
+document.getElementById('pipeline-form').addEventListener('submit', function() {
+  document.getElementById('loading-overlay').classList.add('show');
+  document.getElementById('run-btn').disabled = true;
+  var steps = ['ls1','ls2','ls3','ls4','ls5'], i = 0;
+  (function next() {
+    if (i < steps.length) {
+      document.getElementById(steps[i++]).classList.add('active');
+      setTimeout(next, 800 + Math.random() * 500);
+    }
+  })();
+});
+
+/* DEFAULT DATE */
+document.getElementById('target_date').value = new Date().toISOString().slice(0, 10);
+
+/* SPORT META */
+var SPORT_META = {
+  'Basketball': { emoji:'🏀', label:'Basketball',  sub:'3 providers active', rball:true  },
+  'Volleyball': { emoji:'🏐', label:'Volleyball',  sub:'2 providers active', rball:false },
+  'Handball':   { emoji:'🤾', label:'Handball',    sub:'2 providers active', rball:false },
+  'Ice Hockey': { emoji:'🏒', label:'Ice Hockey',  sub:'3 providers active', rball:true  },
+  'Baseball':   { emoji:'⚾', label:'Baseball',    sub:'2 providers active', rball:false },
+};
+
+var sportSel   = document.getElementById('sport');
+var rballGroup = document.getElementById('rball-group');
+var rballInput = document.getElementById('rball_file');
+
+function updateSport() {
+  var m = SPORT_META[sportSel.value] || SPORT_META['Basketball'];
+  document.getElementById('sport-emoji').textContent = m.emoji;
+  document.getElementById('sport-name').textContent  = m.label;
+  document.getElementById('sport-sub').textContent   = m.sub;
+  document.getElementById('rball-badge').classList.toggle('show', m.rball);
+  document.getElementById('sidebar-rball-row').style.opacity = m.rball ? '1' : '.3';
+  rballGroup.style.display = m.rball ? '' : 'none';
+  rballInput.required = m.rball;
+  if (!m.rball) { rballInput.value = ''; clearDrop('drop-rball'); }
+}
+updateSport();
+sportSel.addEventListener('change', updateSport);
+
+/* CHECK GUIDE SYNC + LBC VISIBILITY */
+var checkSel = document.getElementById('check_type');
+var lbcGroup = document.getElementById('lbc-group');
+
+document.querySelectorAll('.check-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    checkSel.value = this.dataset.val;
+    syncCheckGuide();
+  });
+});
+
+function syncCheckGuide() {
+  var v = checkSel.value;
+  document.querySelectorAll('.check-item').forEach(function(item) {
+    item.classList.toggle('active', item.dataset.val === v);
+  });
+  // Hide LBC Reference for plain upcoming_day — it doesn't use a reference sheet
+  var hideForUpcoming = (v === 'upcoming_day');
+  if (lbcGroup) {
+    lbcGroup.style.display = hideForUpcoming ? 'none' : '';
+    var lbcInput = lbcGroup.querySelector('input[type="file"]');
+    if (lbcInput) lbcInput.required = false; // never mark required via JS; server validates
+    if (hideForUpcoming) { clearDrop('drop-lbc'); }
+  }
+}
+checkSel.addEventListener('change', syncCheckGuide);
+syncCheckGuide();
+
+/* FILE DROP ZONES */
+function initDrop(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var inp  = el.querySelector('input[type="file"]');
+  var main = el.querySelector('.drop-main');
+  var sub  = el.querySelector('.drop-sub');
+
+  function mark(name) {
+    el.classList.add('has-file');
+    if (main) main.textContent = name;
+    if (sub)  sub.textContent  = 'Ready to submit';
+  }
+
+  if (inp) inp.addEventListener('change', function() {
+    if (this.files && this.files.length) mark(this.files[0].name);
+  });
+
+  el.addEventListener('dragover', function(e) { e.preventDefault(); el.classList.add('drag-over'); });
+  el.addEventListener('dragleave', function() { el.classList.remove('drag-over'); });
+  el.addEventListener('drop', function(e) {
+    e.preventDefault(); el.classList.remove('drag-over');
+    if (e.dataTransfer.files && e.dataTransfer.files.length && inp) {
+      try { var dt = new DataTransfer(); dt.items.add(e.dataTransfer.files[0]); inp.files = dt.files; } catch(x) {}
+      mark(e.dataTransfer.files[0].name);
+    }
+  });
+}
+
+function clearDrop(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var inp  = el.querySelector('input[type="file"]');
+  var main = el.querySelector('.drop-main');
+  var sub  = el.querySelector('.drop-sub');
+  el.classList.remove('has-file');
+  if (inp)  inp.value = '';
+  if (main) main.textContent = 'Choose file or drag & drop';
+  if (sub)  sub.textContent  = el.id === 'drop-rball'     ? 'Required for this sport · CSV · XLS · XLSX'
+                             : el.id === 'drop-lbc'       ? 'Required for Double Check modes · CSV · XLS · XLSX'
+                             : el.id === 'drop-blacklist' ? 'Optional · CSV · XLS · XLSX'
+                             :                              'CSV · XLS · XLSX';
+}
+
+['drop-bg','drop-br','drop-rball','drop-lbc','drop-blacklist'].forEach(initDrop);
+
+document.querySelectorAll('.drop-clear').forEach(function(btn) {
+  btn.addEventListener('click', function(e) { e.stopPropagation(); clearDrop(this.dataset.drop); });
+});
+
+/* BLACKLIST LOCK — only active when not already server-locked */
+var blInput = document.getElementById('blacklist_file');
+var blBadge = document.getElementById('blacklist-lock-badge');
+var blHint  = document.getElementById('blacklist-hint');
+if (blInput && !blInput.disabled) {
+  blInput.addEventListener('change', function() {
+    if (this.files && this.files.length) {
+      var fileName = this.files[0].name;
+      if (blBadge) { blBadge.style.display = 'inline-block'; }
+      if (blHint)  { blHint.textContent = fileName + ' — will lock on Run.'; blHint.style.color = 'var(--red)'; }
+      var ui = document.querySelector('#drop-blacklist .file-drop-ui');
+      if (ui) ui.style.borderColor = 'rgba(224,85,85,.4)';
+      // Auto-submit lock form so it persists immediately
+      var lockForm = document.getElementById('lock-blacklist-form');
+      if (lockForm) {
+        var dt = new DataTransfer();
+        dt.items.add(this.files[0]);
+        var lockInput = lockForm.querySelector('input[type="file"]');
+        if (lockInput) { lockInput.files = dt.files; lockForm.submit(); }
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
